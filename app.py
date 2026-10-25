@@ -1,32 +1,26 @@
+# app.py
 import streamlit as st
 import json
-import os
 from reconstruction import PhoenixReconstructor
 from engine.renderer import BlueprintRenderer
 from inference import resurrect_from_image
-
-# Optional storage integration if available
-try:
-    from storage import get_evidence_records
-except ImportError:
-    get_evidence_records = None
 
 st.set_page_config(page_title="Phoenix | Software Resurrection", layout="wide")
 
 st.title("Project Phoenix: Autonomous Software Resurrection")
 st.caption("Reconstructing legacy systems from visual and runtime evidence with verifiable parity.")
 
-# Sidebar controls
-st.sidebar.header("Execution Controls")
+# Sidebar Candidate Version Selection
+st.sidebar.header("Candidate Controls")
 selected_version = st.sidebar.selectbox("Active Candidate Version", ["v1", "v2"], index=0)
 
 reconstructor = PhoenixReconstructor()
 rule_cfg = reconstructor.rule_manager.get_rule_config(selected_version)
 st.sidebar.info(f"**Candidate {selected_version.upper()} Rule:**\n{rule_cfg.get('description')}")
 
-tabs = st.tabs(["🎮 Reconstructed App", "📷 Vision Resurrection", "🧪 5-Scenario Parity Verification", "💻 Export Code"])
+tabs = st.tabs(["🎮 Reconstructed App", "📷 Vision Ingestion", "🧪 5-Scenario Parity Verification", "💻 Export Code"])
 
-# Tab 1: Live Interactive Reconstructed App
+# Tab 1: Live Interactive UI
 with tabs[0]:
     st.subheader(reconstructor.blueprint.get("title", "Reconstructed Invoice Terminal"))
     
@@ -54,7 +48,7 @@ with tabs[0]:
         except Exception as e:
             st.error(f"Execution Error: {e}")
 
-# Tab 2: Vision Ingestion
+# Tab 2: Multimodal Image Ingestion
 with tabs[1]:
     st.subheader("Multimodal Extraction (Vision Resurrection)")
     st.write("Upload a legacy screenshot to infer UI elements and application blueprints.")
@@ -72,7 +66,7 @@ with tabs[1]:
                 st.success("Reconstruction Completed!")
                 st.json(blueprint.model_dump())
 
-# Tab 3: Parity Verification
+# Tab 3: Parity Verification Suite
 with tabs[2]:
     st.subheader("Deterministic Parity Verification (5 Mandatory Scenarios)")
     st.write("Verifying candidate clone against legacy reference across core boundary probes.")
@@ -99,7 +93,7 @@ with tabs[2]:
             })
         st.table(table_rows)
 
-# Tab 4: Generated Code Export
+# Tab 4: Standalone Code Export
 with tabs[3]:
     st.subheader("Standalone Reconstructed Source Code")
     st.write("Phoenix synthesizes clean, framework-independent modern Python code.")
