@@ -1,0 +1,56 @@
+[
+  {
+    "evidence_id": "EV-LOGIN-001",
+    "source_name": "login_screen.png",
+    "screen_name": "Login",
+    "detected_text": ["Username", "Password", "Sign In"],
+    "detected_elements": [
+      {"type": "input_field", "label": "username"},
+      {"type": "input_field", "label": "password"},
+      {"type": "button", "label": "Sign In"}
+    ],
+    "example_inputs": {
+      "username": "admin",
+      "password": "secret_password_123"
+    },
+    "example_outputs": {
+      "authenticated": true
+    }
+  },
+  {
+    "evidence_id": "EV-LOGIN-002",
+    "source_name": "login_attempt_fail.log",
+    "screen_name": "Login",
+    "detected_text": ["Invalid credentials"],
+    "detected_elements": [],
+    "example_inputs": {
+      "username": "admin",
+      "password": "wrong_password"
+    },
+    "example_outputs": {
+      "authenticated": false
+    }
+  },
+  {
+    "evidence_id": "EV-SPARSE-003",
+    "source_name": "corrupt_session_frame.png",
+    "screen_name": null,
+    "detected_text": [],
+    "detected_elements": [],
+    "example_inputs": {},
+    "example_outputs": {}
+  },
+  {
+    "evidence_id": "EV-LOG-004",
+    "source_name": "audit_log_conflict.txt",
+    "screen_name": "AccessControl",
+    "detected_text": ["Access Rule Mismatch"],
+    "detected_elements": [],
+    "example_inputs": {
+      "user": "alice"
+    },
+    "example_outputs": {
+      "status": "DENIED"
+    }
+  }
+]
