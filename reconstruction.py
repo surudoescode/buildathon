@@ -1,8 +1,8 @@
-import json
-import os
+# reconstruction.py
 from pathlib import Path
 from typing import Dict, Any
 
+from engine.blueprint import load_blueprint, validate_blueprint
 from engine.rules import RuleManager
 from engine.behaviors import BehaviorExecutor
 from engine.renderer import BlueprintRenderer
@@ -15,23 +15,20 @@ class PhoenixReconstructor:
         self.blueprint_path = blueprint_path or str(ROOT / "data" / "blueprint.json")
         self.rules_path = rules_path or str(ROOT / "data" / "rules.json")
         self.rule_manager = RuleManager(self.rules_path)
-        self.blueprint = self._load_blueprint()
-
-    def _load_blueprint(self) -> Dict[str, Any]:
-        if not os.path.exists(self.blueprint_path):
-            raise FileNotFoundError(f"Blueprint missing at: {self.blueprint_path}")
-        with open(self.blueprint_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        
+        # Uses your engine's blueprint loader and validator
+        self.blueprint = load_blueprint(self.blueprint_path)
+        validate_blueprint(self.blueprint)
 
     def execute(self, inputs: Dict[str, Any], version: str = None) -> Dict[str, Any]:
-        """Used by test_runner.py and app.py for dynamic candidate execution."""
+        """In-memory candidate execution for live dashboard and test runner."""
         target_version = version or self.rule_manager.get_active_version()
         config = self.rule_manager.get_rule_config(target_version)
         executor = BehaviorExecutor(config)
         return executor.execute_action("calculate_invoice", inputs)
 
     def export_application(self, version: str = None, output_path: str = "generated_app.py") -> str:
-        """Compiles standalone code to disk."""
+        """Standalone code generator matching the GitHub repo logic."""
         target_version = version or self.rule_manager.get_active_version()
         config = self.rule_manager.get_rule_config(target_version)
         code = CodeGenerator.generate_standalone_script(self.blueprint, config)
@@ -40,7 +37,13 @@ class PhoenixReconstructor:
                 f.write(code)
         return code
 
-# Backwards-compatible procedural export matching the GitHub repo's intent
-def reconstruct(blueprint_path=None, rules_path=None, output_path="generated_app.py"):
-    recon = PhoenixReconstructor(blueprint_path, rules_path)
-    return recon.export_application(output_path=output_path)
+# Procedural function so tests or scripts importing reconstruct() continue working
+def reconstruct(blueprint_path=ROOT / "data" / "blueprint.json", 
+                rules_path=ROOT / "data" / "rules.json", 
+                output_path=ROOT / "generated_app.py"):
+    recon = PhoenixReconstructor(str(blueprint_path), str(rules_path))
+    return recon.export_application(output_path=str(output_path))
+
+if __name__ == "__main__":
+    out = reconstruct()
+    print(f"Generated standalone code: {out}")
