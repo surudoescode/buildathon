@@ -1,3 +1,4 @@
+# inference.py
 import os
 import json
 import uuid
@@ -46,7 +47,7 @@ class PhoenixInferenceEngine:
         failure_report: FailureReport
     ) -> BlueprintCorrection:
         """
-        Diagnoses verification failures from test runner and suggests blueprint fixes.
+        Diagnoses verification failures from Member 4 and suggests blueprint fixes.
         """
         if self.force_mock:
             return self._mock_suggest_correction(failure_report)
@@ -58,43 +59,6 @@ class PhoenixInferenceEngine:
             fallback = self._mock_suggest_correction(failure_report)
             fallback.is_mock = True
             return fallback
-
-    def resurrect_from_image(self, image_bytes: bytes, mime_type: str = "image/png") -> ApplicationBlueprint:
-        """
-        Multimodal UI extraction: Takes an uploaded screenshot of a legacy application
-        and reconstructs the ApplicationBlueprint using Gemini vision or deterministic fallback.
-        """
-        if self.force_mock:
-            return self._mock_vision_blueprint()
-
-        try:
-            from google import genai
-            from google.genai import types
-
-            client = genai.Client(api_key=self.api_key)
-
-            prompt = (
-                "You are an AI software reconstruction engine. Analyze this legacy UI screenshot. "
-                "Extract all UI components (input fields, buttons, metrics, text labels), infer "
-                "the screen layout, and reconstruct an ApplicationBlueprint JSON matching the schema. "
-                "Classify observed elements as 'Observed' and inferred business logic as 'Inferred'."
-            )
-
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[
-                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                    prompt
-                ],
-                config={"response_mime_type": "application/json"}
-            )
-
-            data = json.loads(response.text)
-            return ApplicationBlueprint(**data, is_mock=False)
-
-        except Exception as e:
-            print(f"[Inference Notice] Vision reconstruction failed ({e}). Falling back to demo mock.")
-            return self._mock_vision_blueprint()
 
     # --- Live AI Integration ---
 
@@ -146,7 +110,10 @@ class PhoenixInferenceEngine:
 
     def _mock_blueprint_generation(self, evidence_list: List[ProcessedEvidence]) -> ApplicationBlueprint:
         evidence_ids = [e.evidence_id for e in evidence_list]
+
+        # 1. Identify screens and elements from evidence
         screens = []
+        ui_elements = []
 
         all_detected_elements = [el for ev in evidence_list for el in ev.detected_elements]
         has_login_fields = any("user" in str(el).lower() or "password" in str(el).lower() for el in all_detected_elements)
@@ -166,7 +133,8 @@ class PhoenixInferenceEngine:
                 )
             screens.append(ScreenBlueprint(screen_id="SCREEN-LOGIN", title="Login Screen", elements=login_elements))
 
-        # Check for Contradictory Evidence
+        # 2. Check for Contradictory Evidence
+        # e.g., Same input yielding two mutually conflicting outputs in the evidence
         io_map = {}
         has_contradiction = False
         for ev in evidence_list:
@@ -194,6 +162,7 @@ class PhoenixInferenceEngine:
                 )
             )
         else:
+            # 3. Normal / Inferred / Unknown Checks
             has_credentials_evidence = any(
                 any("user" in str(k).lower() or "pass" in str(k).lower() for k in ev.example_inputs)
                 for ev in evidence_list if ev.example_inputs
@@ -225,6 +194,7 @@ class PhoenixInferenceEngine:
                     )
                 )
             else:
+                # Missing evidence scenario -> Mark behavior as Unknown
                 rules.append(
                     BehaviorRule(
                         rule_id="RULE-AUTH-UNKNOWN",
@@ -251,71 +221,13 @@ class PhoenixInferenceEngine:
     def _mock_suggest_correction(self, failure_report: FailureReport) -> BlueprintCorrection:
         return BlueprintCorrection(
             proposal_id="PROP-REPAIR-01",
-            target_rule_id="RULE-CALC-01",
+            target_rule_id="RULE-AUTH-01",
             diagnosis=(
                 f"Mismatch on {failure_report.screen_or_workflow}: expected "
                 f"{failure_report.expected}, got {failure_report.actual}. "
-                "Adjusting rule from quantity_threshold to subtotal_threshold >= 2000.0."
+                "Adjusting validation constraint to accept valid legacy domain tokens."
             ),
-            corrected_parameters={"discount_type": "subtotal_threshold", "threshold": 2000.0, "rate": 0.10},
+            corrected_parameters={"min_length": 4, "allow_legacy_tokens": True},
             is_mock=True
         )
-
-    def _mock_vision_blueprint(self) -> ApplicationBlueprint:
-        evidence_ids = ["EVID-SCREENSHOT-01"]
-        components = [
-            UIElement(
-                element_id=f"elem-{uuid.uuid4().hex[:4]}",
-                element_type="number_input",
-                label="Item Quantity",
-                status=RuleStatus.OBSERVED,
-                supporting_evidence_ids=evidence_ids
-            ),
-            UIElement(
-                element_id=f"elem-{uuid.uuid4().hex[:4]}",
-                element_type="number_input",
-                label="Unit Price (₹)",
-                status=RuleStatus.OBSERVED,
-                supporting_evidence_ids=evidence_ids
-            ),
-            UIElement(
-                element_id=f"elem-{uuid.uuid4().hex[:4]}",
-                element_type="button",
-                label="Calculate Payable Total",
-                status=RuleStatus.OBSERVED,
-                supporting_evidence_ids=evidence_ids
-            )
-        ]
-
-        screen = ScreenBlueprint(
-            screen_id="SCREEN-INVOICE-01",
-            title="Reconstructed Invoice Terminal",
-            elements=components
-        )
-
-        rule = BehaviorRule(
-            rule_id="RULE-CALC-01",
-            name="Tiered Discount Calculation",
-            description="Applies discount rules inferred from legacy calculation UI.",
-            status=RuleStatus.INFERRED,
-            supporting_evidence_ids=evidence_ids,
-            logic_type="pricing_calculation",
-            parameters={"threshold": 2000.0, "rate": 0.10},
-            confidence_score=0.88,
-            is_mock=True
-        )
-
-        return ApplicationBlueprint(
-            app_name="Phoenix Reconstructed Application",
-            screens=[screen],
-            transitions=[],
-            rules=[rule],
-            version="1.0.0",
-            is_mock=True
-        )
-
-
-def resurrect_from_image(image_bytes: bytes, mime_type: str = "image/png") -> ApplicationBlueprint:
-    """Convenience wrapper for Streamlit UI calls."""
-    engine = PhoenixInferenceEngine()
-    return engine.resurrect_from_image(image_bytes=image_bytes, mime_type=mime_type)
+    
